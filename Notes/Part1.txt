@@ -1,0 +1,37 @@
+Important Pointers for Exam part1:
++++++++++++++++++++++++++++++++++++
+
+Dynamic Secrets:
+================
+1. Dynamic secrets allow you to generate credentials on-demand dynamically and are automatically revoked after certain duration.
+2. Not all secrets engine supports dynamic credentials.
+3. Common supported engines: AWS, Database, Google cloud, Azure.
+4. Dynamic secret does not provide any stronger cryptographic key generation.
+
+Lease Management:
+==================
+1. With every dynamic secret and service type authentication token, vault creates a lease: metadata containing information such as a time duration, renewability and more.
+2. Once lease is expired, Vault can automatically revoke the data, and the consumer of secret can no longer be certain that its valid.
+
+Lease Options || Description
+1. renew - This command renews the lease on a secret, extending the time it can be used before it is revoked by vault.
+2. revoke - When a lease is revoked, it invalidates the secret immediately and prevents any further renewals.
+
+Lease Renewal and Revocation:
+1. vault lease renew -increment=3600 my-lease-id : Would request that the TTL of lease be adjusted to 1 hour (3600 seconds).
+2. vault lease revoke my-lease-id : Revoke a specific lease.
+3. vault lease revoke -prefix aws/ : Revoke all aws access keys. (Path based revoke)
+
+Transit Secret Engine:
+=======================
+1. The transit secret engine handles cryptographic functions on data in-transit.
+2. All plaintext data must be base64 encoded.
+3. The reason for this requirement is that Vault does not require that the plain text is "text". It could be a binary file such as a PDF or image.
+4. We can rotate encrytion keys at regular intervals to ensure that not all data is encrypted with just one encryption key.
+
+Transit Secret Engine - Key version:
+====================================
+1. The transit engine supports versioning of keys.
+2. Key versions that are earlier than a key's specified min_decryption_version gets archived, and the rest of key versions belong to the working set.
+3. This leads to both performance benefit as well as security benefits.
+4. By disallowing decryption of old version of keys, found ciphertext to obsolete (but sensitive) data can not be decrypted, but in an emergency the min_decryption_version can be moved back to allow for legitimate decryption.
