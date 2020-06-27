@@ -1,0 +1,62 @@
+Important Pointers for Part-2:
++++++++++++++++++++++++++++++++
+
+Vault Policies:
+===============
+1. Vault policies are used to govern the access of users and roles (authorization).
+2. When you first initialize vault, the root and default policy get created by default.
+3. Policies are deny by default, so an empty policy grants no permission on the system.
+    path "sys/mounts" {
+    	capabilities = ["read"]
+    }
+
+Default Policy:
+===============
+1. The default policy is a built-in vault policy that cannot be removed.
+2. By default it is attached to all tokens, but may be explicitly excluded at token creation time by supporting authentication methods.
+3. The policy contains basic functionality such as the ability for the token to lookup data about itself and to use its cubbyhole data.
+4. However, vault is not prescriptive about its contents. It can be modified to suit your needs.
+
+Root Policy:
+=============
+1. The root policy is a built-in vault policy that cannot be modified or removed.
+2. A root user can do anything within vault. As such, it is highly recommended that you revoke any root tokens before running vault in production.
+3. When a vault server is first initialized, there always exist an root user. The user is used to do the initial configuration and setup of vault.
+4. After Configured, the initial root token should be revoked and more strictly controlled users and authentication should be used.
+
+Token Accessor:
+===============
+1. This accessor is value that acts as a reference to a token and can only be used to perform limited actions:
+   a) lookup token's properties (not including actual token id)
+   b) Lookup token's capabilities on a path.
+   c) Renew a token.
+   d) Revoke the token.
+
+Policy Association:
+===================
+1. During the token creation time, the policy is associated with the token.
+2. At a later stage if you attach a new policy to the user or role, it will not affect the existing tokens. For such cases a new token must be created.
+3. Policy which are updated and are already attached to the token, the rules will be reflected accordingly as part of token's permission.
+
+Token Capabilities:
+===================
+1. The token capabilities command fetches the capabilities of a token for a given path.
+2. Token accessor can also be used to check the capabilities of a specific token.
+Example: $ vault token capabilities secret/foo
+           read
+
+Authentication Methods:
+=======================
+1. There are multiple authentication methods available in Vault.
+2. After successful authentication, a token is generated which can be used for interaction with Vault.
+3. Remember that Github auth method is user oriented method and is easiest to use for developer's machines.
+4. For Server's, AppRole method is the recommended choice.
+    $ vault auth enable -path=my-login userpass
+
+
+Disabling Auth Method:
+======================
+1. A specific authentication method can be disabled with the following command.
+   vault auth disable <method name>
+
+2. When an authentication method is disabled, all users auuthenticated via that method are automatically logged out.

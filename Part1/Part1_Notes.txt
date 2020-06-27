@@ -1,0 +1,51 @@
+1. Starting vault dev mode: vault server -dev
+2. Setting environment variables for Linux and Mac: export VAULT_ADDR="http://127.0.0.1:8200"
+3. KV Secret Engine Commands:
+   
+Create multiple versions of secret
+	vault kv put secret/second-secret user=admin01
+	vault kv put secret/second-secret user=admin02
+	vault kv put secret/second-secret user=admin03
+Read Secret:
+	vault kv get secret/second-secret
+Read specific version of secret
+	vault kv get -version=2 secret/second-secret
+Delete specific version of secret
+	vault kv delete -versions=2 secret/second-secret
+Undelete version of secret
+	vault kv undelete -versions=2 secret/second-secret
+Permanently delete version of secret:
+	vault kv destroy -versions=2 secret/second-secret
+Delete the secret
+	vault kv metadata delete secret/second-secret
+
+4. Enable a new KV Secret Engine: https://www.vaultproject.io/docs/secrets
+    vault secrets enable -path=demopath -version=2 kv 
+    OR 
+    vault secrets enable kv-v2
+	
+	vault secrets disable demopath/
+
+5. Secrets Engine Lifecycle: Most secrets engine can be enabled, disabled, tuned or moved via the CLI or API.
+  a) Enable : This enables secret engine at given path. By default they are enabled at their "type" (i.e "aws" enables at "aws/").
+  b) Disable : This disables an existing secret engine. When an secret engine is disabled, all the secrets are revoked.
+  c) Move : This moves the path of existing secrets engine.
+
+6. Dynamic Secrets: In KV secrets engine we have to manually store the data. In opposed to that, certain engine works based on dynamic secrets. These secrets do not exist until they are generated.
+
+7. Revoking Secrets: Vault will automatically revoke dynamic credentials and this can further be tuned by setting the lease duration. Once 	secret is revoked, the access keys are no longer valid. (i.e dynamically generated aws secrets).
+
+8. Lease management:
+	vault lease renew -increment=36000 demopath/creds/admini-role/wT7Nuleh1RUW5XTKUuemxwZ2
+	vault lease revoke -h
+
+9. There are 2 ways to revoke lease:
+     a) vault lease revoke my-lease-id : Revoke a specific lease
+     b) vault lease revoke -prefix aws/ : Revoke all aws access keys.
+
+10. Transit Secrets Engine: Vault transit secrets engine handles cryptographic functions on data-in-transit. Vault doesn't store the data sent to the secret engine, so it can always be viewed as encryption as service.
+    a) CLI Command:
+         Encrypting Data
+          vault write transit/encrypt/demo-key plaintext=<Base64 encoded text>
+         Decrypting Data
+          vault write transit/decrypt/demo-key ciphertext=<YOUR-CIPHERTEXT-HERE> (resultant output in base64)
