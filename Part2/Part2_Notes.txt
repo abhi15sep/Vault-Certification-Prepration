@@ -1,0 +1,130 @@
+1. login via userpass auth method using cli:
+		vault login -method=userpass username=admin password=password
+2. Policites are written is HCL format and are often referred as ACL policies. Everything in vault is path based and admins write policies to grant or forbid access to certain paths and operation in vault.
+   path "auth/*" {
+   	capabilities = ["create","read","update","delete","list","sudo"]
+   }
+
+3. List of important capabilities:
+   > Create, Read, Update, Delete, List, Sudo, Deny
+
+4. Commands:
+   > path "sys/mounts" {
+     capabilities = ["read"]
+     }
+   > vault login -method=userpass username=admin password=password
+   > vault secrets list
+
+
+   > path "sys/policies/acl" {
+      capabilities = ["read","list"]
+     }  
+   > vault policy list
+
+
+   > path "secret/*" {
+      capabilities = ["read"]
+     }
+   > vault kv get secret/firstsecret
+
+   > vault kv get secret/supersecret [should be denied]
+   > path "secret/+/supersecret" {
+ 		 capabilities = ["deny"]
+	 }
+
+5. Root protected API endpoints: Some of the paths are more restrictive and required root token or sudo capability in the policy.
+  > auth/token/accessors
+  > auth/token
+  > sys/audit
+  > sys/rotate
+  > sys/seal
+
+6. AppRole Auth Method: Some of supported auth methods are targeted towards human and some towards machine i.e Approle. For AppRole Authentication RoleId and SecretId is used for authentication. If authentication is successful token is generated and this token is used to perform operation on vault. Steps to use AppRole:
+  a) Create AppRole Auth Method from browser dashboard.
+  b) Create a policy (enkins-role-policy).
+     path "secret/*" {
+      capabilities = ["create","read","update","delete"]
+     }
+  c) Create a new Role with associated policy:
+      vault write auth/approle/role/jenkins token_policies="jenkins-role-policy"
+  d) Fetch Information About Role:
+      vault read auth/approle/role/jenkins
+  e) Fetch the Role ID
+      vault read auth/approle/role/jenkins/role-id
+  f) Fetch the Secret ID
+       vault write -f auth/approle/role/jenkins/secret-id
+  g) Authenticate with AppRole
+       vault write auth/approle/login role_id="YOUR-ROLE-ID" secret_id="YOUR-SECRET-ID"
+
+7. All the vault capabilities are accessible via HTTP API. Even most call from CLI actually invokes HTTP Api. Some of the vault features are not available via CLI and can only be accessed via HTTP Api. With the help of curl we can send request to vault and can get appropriate response. client token can be used to make the call, client token can be set with X-Vault-Token http header within request.
+
+8. vault print token:
+     vault print token
+
+   Read the firstsecret:
+      curl --header "X-Vault-Token: s.D4mEpn77EhyLvDOrAy2egr8g" https://127.0.0.1:8200/v1/secret/data/firstsecret?version=1
+
+   Create a new secret:
+     curl --header "X-Vault-Token: s.D4mEpn77EhyLvDOrAy2egr8g" --request POST --data @payload.json http://127.0.0.1:8200/v1/secret/data/api-secret
+
+     payload.json
+		{
+		  "data": {
+		  "course": "vault-associate",
+		  "instructor": "zeal"
+		  }
+		} 
+
+9. All api routes are prefixed with /v1/.
+   Example: /v1/secret/foo - This maps to secret/foo where foo is the key in the secret/ mount.
+   curl --header "X-Vault-Token: s.D4mEpn77EhyLvDOrAy2egr8g" https://127.0.0.1:8200/v1/secret/foo
+
+   For listing related aspects, like vault secrets list, you can either issue a GET with the query parameter list=true, or you can use the LIST HTTP verb.
+   curl -H "X-Vault-Token: s.D4mEpn77EhyLvDOrAy2egr8g" -X LIST http://127.0.0.1:8200/v1/secret/
+
+10. Http verb to capability mapping: (https://www.vaultproject.io/api-docs/secret/kv/kv-v2)
+     capability | Associated HTTP Verb
+    a) create - POST/PUT
+    b) list - GET
+    c) update - POST/PUT
+    d) delete - DELETE
+    e) list - LIST
+
+11. The token capabilities command fetches the capability of a token for a given path.
+      vault login -method=userpass username=demouser password=password
+	  vault token capabilities sys/
+	  vault login [ROOT-TOKEN]
+	  vault token capabilities [YOUR-TOKEN] sys/
+
+	If a token is provided as an argument, the "/sys/capabilities" endpoint and permission is used.
+	If no token is provided, the "/sys/capabilities-self" endpoint and permission is used with the locally authenticated token.
+
+12. Authentication for multiple Users: Each vault client may have multiple accounts with various identity providers that are enabled on the vault server. In this case an entity can be created with name "bob" and create alias that represents each of the account and associate them as an entity member.
+    
+     Policy ---> bob-smith (Entity) ---> bob alias
+                                    ---> mrbob alias
+
+    Base Policy Used For Entities and Users:
+      path "secret/*" {
+       capabilities = ["read"]
+      }
+
+    Policy Names:
+      entity-policy (base policy)
+	  bob-policy
+      bsmith-policy
+
+    Login to bob and bsmith user
+      vault login -method=userpass username=bob password=password
+      vault login -method=userpass username=bsmith password=password
+
+13. Identity Secret Engine: The identity secret engine maintains the client who are recognized by vault.
+Each client is internally termed as Entity. An entity can have multiple aliases. The secrets engine will be mounted by default. This Secret engine cannot be disabled or moved.
+
+14. Identity Groups:
+      A group can contain multiple entities as its members. Policies set on the group is granted to all membersof the group.
+
+15. Internal and External Groups:
+        By default vault creates an internal group. Many organization already have group defined within their external identity providers like Active Directory.
+
+        External Groups allows to link vault with the external identity provider (auth provider) and attach appropriate policies to the group.
