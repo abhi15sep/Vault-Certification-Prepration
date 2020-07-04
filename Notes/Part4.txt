@@ -1,0 +1,104 @@
+Important Pointers for Part-4:
+++++++++++++++++++++++++++++++
+
+Shamir secret sharing for unsealing the vault:
+==============================================
+Storage backend is considered to be untrusted and vault uses an encryption key which is used to protect all data.This key is protected by master key.
+
+Vault uses a technique known as Shamir's secret sharing algorithm to split the master key into 5 shares, any 3 of which are required to reconstuct the master key.
+
+Shamir secret sharing- Best Practice:
+======================================
+The best practice states that the key shares that are entered to get the master key should be done from different workstation by different users having an individual key.
+
+Seal Stanza:
+============
+The seal stanza configures the seal type to use for additional data protection, such as using HSM or Cloud KMS solutions to encrypt and decrypt the master key.
+     This stanza is optional , and in the case of master key, vault will use shamir algorithm to cryptographically split the master key if this is not configured.
+
+     seal [NAME] {
+      #...
+     } 
+
+Vault Replication:
+==================
+> For performance replication, secondary clusters will service reads locally.
+> Some data is also stored locally and not replicated to the primary cluster.
+> In DR (disaster recovery), all the data is replicated but secondary culster cannot accept the client request.
+
+Entity and Aliases:
+===================
+Each client is internally termed as an Entity. An entity can have multiple aliases. Policy defined at entiy level are associated with the aliases.
+
+Identity Groups:
+================
+A group can contain multiple entities as its member. Policies set on the group is granted to all members of the group.
+
+Vault Output:
+=============
+We can have vault output in the following mode: Table, Json, Yaml. Default is Table.
+
+Multiple Encryption Keys:
+=========================
+For Transit engine, it is considered as best practice to regularly rotate the encryption key.
+This limits the number of data encrypted via a single key.
+All the data should not be encrypted with the single encryption key. It increases the risk.
+
+Reading Output from KV path:
+============================
+You want to be able to read a specific secret at secret/demosecret. Which capability needs to be used ?
+
+There are two primary capabilities:
+1. LIST
+2. READ
+
+List allows listing values at a given path.
+Read allows reading the data at a given path.
+
+Audit Devices:
+==============
+Audit devices are the components in vault that keep a detailed log of all requests and response to vault.
+When a vault server is first initialized, no auditing is enabled.
+Audit devices must be enabled by a root user using vault audit enable.
+
+Vault Browser CLI:
+==================
+Allows running of basic CLI commands like read, write, delete, list.
+You will not be able to perform various operations like creating new authentication methods and others.
+
+Vault token lookup:
+==================
+Be familier with output of vault token lookup.
+
+Orphan Token:
+=============
+Orphan Tokens are not children of their parent; therefore orphan token do not expire when their parent does.
+They are root of their own token tree.
+Orphan token still expire when their own max ttl is reached.
+
+Create Token with Explicit ttl:
+===============================
+TTL = Initial ttl to associate wiith the token.
+Explicit max ttl = Maximum lifetime for the token. Hard limit and cannot be exceeded.
+The system max ttl, which is 32 days but can be changed in vault configuration file.
+
+Renewing a token:
+================
+vault token renew command can be used to extend the validity of the renewable tokens.
+
+Basic Environment variable:
+==========================
+VAULT_ADDR
+Address of the vault server expressed as a URL and port, for example: https://127.0.0.1:8200/.
+https://127.0.0.1:8200 can also be replaced with http://8200
+
+GUI Related questions:
+======================
+1. Delete version 2 of secret.
+
+Secrets Engine:
+================
+Multiple secrets engine of the same type can be enabled at a given time.
+We can distinguish them uniquely by seperating them by path.
+>kv secret engine mounted on /secret
+> kv secret engine mounted on /kv

@@ -1,0 +1,42 @@
+Important Pointers for Part-3:
++++++++++++++++++++++++++++++++
+
+Storage Backend:
+================
+Vault has multiple storage backend each for different usecases.
+Storage backends represents the location for the durable storage of Vault's information.
+Remember that not all storage backends supports high availibility.
+  storage "dynamodb" {
+  	ha_enabled = "true"
+  	region = "us-west-2"
+  	table = "vault-data"
+  }
+
+Disabling Secret Engine:
+=========================
+The secrets disable command disables an secrets engine at a given path. Once an secret engine is disabled, all secrets generated via the secrets engine are immediately revoked.
+
+vault secrets disable aws/
+
+Login based on UserPass Auth Method:
+=====================================
+While logging in via userpass auth method, it is important to not define the password directly within the CLI command.
+vault login -method=userpass username=demouser
+
+Unseal Vault:
+=============
+When a vault server is started, it starts in sealed state.
+Unsealing is the process of constructing the master key necessary to read the decryption key to decrypt the data, allowing access to vault.
+Unsealing is the process of reconstructing the master key.
+
+Vault Agent:
+=============
+The agent does not persist anything to storage. Everything lives in memory. There are two primary functionality related to vault agent:
+1. Auto-Auth: Automatically authenticate to vault and manage the token renewal process.
+2. Caching: Allows client side caching of responses containing newly created tokens. If configured with use_auto_auth_token client will not be required to provide a vault token to the requests made to the vault agent.
+
+Response Wrapping Token:
+-=======================
+When response wrapping is required, vault creates a temporary single-use token(wrapping token) and insert the response into the token's cubbyhole with a short ttl.
+
+If wrapping token is compromised and attacker unwraps the secret, the application will not be able to unwrp again and this can sound an alarm and you can revoke things accordingly.

@@ -1,0 +1,82 @@
+1. Tokens are the core methods for authentication within Vault. With vault server -dev, we have been using 	the root token. This is the first method of authentication for Vault. It is alos the only auth method that cannot be disabled.
+
+2. Mapping of token to Policies: Within vault, tokens map to information. The most important information mapped to a token is a set of one or more attached policies.
+
+3. Lookup token information: You can explore the details of an given token with the help of vault token lookup command.
+
+vault login -method=userpass username=demouser password=password
+
+path "secret/*" {
+  capabilities = ["list","read"]
+}
+
+path "auth/token/lookup-self" {
+   capabilities = ["read"]
+   }
+
+vault token lookup
+OR
+vault token lookup <token-id>
+To switch to root token: vault login [root-token-identifier]
+
+4. Token Helper: By default vault CLI uses a token helper to cache the token after authentication. The default token helper stores the token in ~/.vault-token. you can delete this file at anytime  to logout of vault.
+
+5. Time-to-Live: Time to live limits the lifetime of the data. USed extensively in dns. Every non-root token have ttl associated with it. After the current ttl is up, the token will no longer function, and its associated lease are revoked. 
+     a) you can create a ttl that has user defined ttl:
+   		vault token create --ttl=600
+   	 b) vault token renew command can be used to extend the validity of the renewable tokens.
+   	     vault token renew --increment=30m <token-id>
+
+   	 Useful Commands:
+   	 	vault login -method=userpass username=demouser password=password
+		vault token create
+		vault token create --tl=60
+		vault token lookup [TOKEN]
+		vault token renew -increment=99999m [TOKEN]
+
+	c) Default token value comes from:  vault read sys/auth/token/tune
+
+6. Service Token Lifecycle: Normally when a token holder creates a new token, these tokens will be created as children of original token.
+
+   parent token -> vault token create : Child token
+
+In this knind of hirarchy, If parent is revoked or expires, so do all its children regardless of their own ttls.
+
+7. Token Accessors: When token is created, a token accessor is also created and returned. This accessor is a value that acts as a reference to a token and can only be used to perform limited actions:
+     a) Lookup's a token properties.
+     b) Lookup a token's capability on a path.
+     c) Renew the token.
+     d) Revoke the token.
+
+     List the Token Accessors:
+		vault list auth/token/accessors
+
+	 Perform Lookup Based on Accessor:
+       vault token lookup -accessor [YOUR-ACCESSOR]
+
+8. orphan-token: Orphan tokens are not children of their parent, therefore orphan token do not expire when their parent does. They are root of their own token tree. Orphan token still expire when their own max ttl is reached.
+
+  Useful Commands:
+    Capabilities Assigned to demouser:
+		path "auth/token/create" {
+		  capabilities = ["create","read","update","sudo"]
+		}
+
+		path "auth/token/lookup" {
+		  capabilities = ["create","read","update"]
+		}
+    Commands used to create orphan token: This cli command requires root token or sudo capability on the /auth/token/create path.
+		vault token create -orphan
+	Performing a lookup for the token:
+		vault token lookup s.eiaBtk4aF7mikTZ6a6kc5sBq
+
+9. Secret Engine -Cubby Hole: The cubbyhole secret engine provides your own private secret storage space where no one else can read (including root). It is not possible to reach into another token's cubbyhole even as the root user. The cubbyhole secret engine is enabled by default. It cannot be disabled, moved or enabled multiple times.
+       In cubbyhole, paths are scoped per token. No token can access another token's cubbyhole. When the token expires, its cubbyhole is expired.
+
+10. wrapped token: When response wrapping is requested, vault creates a temporary single use token(wrapping-token) and insert the response into token's cubbyhole with short ttl. Only the expecting client who has the wrapping token can unwrap this secret. If wrapping token is compromised and attacker unwraps the secret, the application will not be able to unwrap again and this can sounds an alarm and you can revoke things accordingly.
+
+	Useful Command:
+	    Creating a response wrapped token:
+			vault token create -wrap-ttl=600
+		Unwrap token from wrap:
+			vault unwrap [wrapping-token] 
