@@ -1,0 +1,517 @@
+========================================== KV secret engine================================
+
+vault kv put secret/mypath mykey=myvalue
+vault kv put secret/empdb username=hr password=hR123
+vault kv put secret/empdb/tableaccess username=tabuser password=tab123
+
+vault kv get secret/mypath
+
+#list what n all keys are available in any specific path
+vault kv list secret
+
+#to retrieve any specific field available in specific path
+vault kv get -field=username secret/empdb/tableaccess
+
+#to get in specific format
+vault kv get -format=json secret/empdb/tableaccess
+
+#to provide value using std input
+vault kv put secret/eng/apikey/Google key=-
+vault kv get secret/eng/apikey/Google
+
+#tp provide file as an input
+apikey.txt
+
+{
+  "key": "AAaaBBccYAHOOKEY1234BB_ReadFromFile"
+}
+
+vault kv put secret/eng/apikey/Yahoo @apikey.txt
+
+
+#######How to add v1 kv secret engine#####
+
+#secret engines available
+vault secrets list  		
+
+#secret engines available
+vault kv put mypath/foo/bar a=b   
+
+#enable mypath
+vault secrets enable -path=mypath kv
+
+vault kv get mypath/foo/bar
+
+#If we dont provide the path then
+vault secrets enable kv
+
+#delete
+vault kv put kv/firstkv rootuser=rootadmin
+vault kv get kv/firstkv
+vault kv put kv/door-pin-secret value="772211"
+vault kv list kv/
+vault kv delete kv/door-pin-secret
+
+#disable secret
+vault secrets disable kv/
+
+########How to add v2 kv secret engine######
+
+#to list the secrets and version
+vault secrets list -detailed
+
+vault secrets enable -path=mypath kv
+
+#to enable versioning(v2)
+vault kv enable-versioning mypath/
+
+
+######### How versioning works ######
+vault kv put secret/customer/abcd contact_name="kum" support_email="kum@abcd.com"
+vault kv get secret/customer/abcd
+
+vault kv put secret/customer/abcd contact_name="muthu" support_email="muthu@abcd.com"
+vault kv get secret/customer/abcd
+
+vault kv put secret/customer/abcd support_email="muthukumar@abcd.com"
+vault kv get secret/customer/abcd
+
+vault kv put secret/customer/abcd contact_name="muthu" support_email="muthu@abcd.com"
+
+#need to add or append value for the key or we may have to update the value of any specific key(patch command)
+vault kv patch secret/customer/abcd second_email="muthukumar@acme.com"
+
+
+CLI commands
+#to list all the versions
+vault kv metadata get secret/customer/abcd
+
+#to get version specific data
+vault kv get -version=2 secret/customer/abcd
+
+#to restrict the version for any path within any secret engine
+vault write secret/config max_versions=4
+vault read secret/config
+
+#to restrict against a particular path
+vault kv metadata put -max-versions=4 secret/customer/abcd
+vault kv metadata get secret/customer/abcd
+
+
+vault kv put secret/customer/abcd contact_name="kum1" support_email="kum1@abcd.com"
+vault kv put secret/customer/abcd contact_name="kum2" support_email="kum2@abcd.com"
+vault kv put secret/customer/abcd contact_name="kum3" support_email="kum3@abcd.com"
+vault kv put secret/customer/abcd contact_name="kum4" support_email="kum4@abcd.com"
+vault kv put secret/customer/abcd contact_name="kum5" support_email="kum5@abcd.com"
+vault kv put secret/customer/abcd contact_name="kum6" support_email="kum6@abcd.com"
+vault kv put secret/customer/abcd contact_name="kum7" support_email="kum7@abcd.com"
+
+#will not get this as limit is set to 4
+vault kv get -version=1 secret/customer/abcd
+
+#to delete specific version
+vault kv delete -versions="7,8" secret/customer/abcd
+
+#undelete
+vault kv undelete -versions=7 secret/customer/abcd
+vault kv metadata get secret/customer/abcd
+
+#to permanently delete
+vault kv destroy -versions=7 secret/customer/abcd
+vault kv metadata get secret/customer/abcd
+vault kv get -version=7 secret/customer/abcd
+
+#to delete all the versions
+vault kv metadata delete secret/customer/abcd
+vault kv metadata get secret/customer/abcd
+
+#to delete after x number of sec
+vault kv metadata put -delete-version-after=30s secret/autoexpirytest
+
+vault kv put secret/autoexpirytest message="ver1"
+vault kv put secret/autoexpirytest message="ver2"
+vault kv put secret/autoexpirytest message="ver3"
+
+vault kv metadata get secret/autoexpirytest
+
+vault kv get -version=1 secret/autoexpirytest
+
+############ Check and set operation ##########
+vault kv metadata put -cas-required=true secret/partner
+vault kv metadata get secret/partner
+
+#set cas flag
+vault kv put -cas=0 secret/partner castest="checkandset" cas_id="123456789"
+
+#without cas flag will not work
+vault kv put secret/partner castest="checkandset" cas_id="1111111"
+
+vault kv put -cas=1 secret/partner castest="checkandset" cas_id="1111111"
+
+#wrong cas version
+vault kv put -cas=1 secret/partner castest="checkandset" cas_id="2222222"
+
+
+===========================================Storage backend=============================
+
+myconfig.hcl
+/home/user/hashiCorp
+storage "file" {
+  path = "/home/user/hashiCorp/data"
+}
+listener "tcp" {
+  address     = "127.0.0.1:8200"
+  tls_disable = 1
+}
+
+api_addr = "http://127.0.0.1:8200"
+cluster_addr = "https://127.0.0.1:8201"
+ui = true
+
+
+sudo vault server -config /home/user/hashiCorp/myconfig.hcl
+
+export VAULT_ADDR='http://127.0.0.1:8200'
+
+vault operator init
+
+vault operator unseal
+
+vault login s.1Bjw8DTCXZrNbyR2EQNt3lvW
+
+vault operator seal
+
+vault secrets enable -path=mypath kv
+vault kv put mypath/aws mykey=myvalue
+vault secrets list
+
+https://www.vaultproject.io/docs/configuration/storage/filesystem
+
+=================================================API======================
+
+curl http://127.0.0.1:8200/v1/sys/seal-status
+
+curl --header "X-Vault-Token:s.1Bjw8DTCXZrNbyR2EQNt3lvW" --request PUT http://127.0.0.1:8200/v1/sys/seal
+
+curl http://127.0.0.1:8200/v1/sys/seal-status
+
+curl --request PUT --data '{"key": "/K0YJ2WKn62+vALAQlIXfG9zko43Kqf9XH9bHlcgiMBz"}' http://127.0.0.1:8200/v1/sys/unseal | jq
+curl --request PUT --data '{"key": "sdiDmxGIfTSiWdCDxGGJrfy2vKQ6fjwrw/3Sg0cqcHQR"}' http://127.0.0.1:8200/v1/sys/unseal | jq
+curl --request PUT --data '{"key": "nKVIW+MrofBTLs4ciM9Gw4e/AXFcQUsRbh6DwABqvjio"}' http://127.0.0.1:8200/v1/sys/unseal | jq
+
+#vault secrets list
+curl --header "X-Vault-Token:s.1Bjw8DTCXZrNbyR2EQNt3lvW" --request LIST $VAULT_ADDR/v1/mypath
+
+curl --request PUT --data @payload.json http://127.0.0.1:8200/v1/sys/unseal
+
+# Check the versions
+curl --header "X-Vault-Token:s.1Bjw8DTCXZrNbyR2EQNt3lvW" $VAULT_ADDR/v1/sys/mounts
+curl --header "X-Vault-Token:s.J88C1se24yKGgeFrCYw5HDwp" $VAULT_ADDR/v1/sys/mounts | jq
+
+curl --header "X-Vault-Token:s.J88C1se24yKGgeFrCYw5HDwp" --request PUT http://127.0.0.1:8200/v1/sys/seal
+
+
+
+===========================================API kv v1=================================
+
+curl --header "X-Vault-Token:s.J88C1se24yKGgeFrCYw5HDwp" --request LIST $VAULT_ADDR/v1/mypath
+
+vi payloadv1post.json
+{
+  "key1": "value1",
+  "key2": "value2"
+}
+
+curl --header "X-Vault-Token:s.1Bjw8DTCXZrNbyR2EQNt3lvW" --request POST --data @payloadv1post.json $VAULT_ADDR/v1/mypath/api-post
+
+# List keys
+curl --header "X-Vault-Token:s.J88C1se24yKGgeFrCYw5HDwp" --request LIST $VAULT_ADDR/v1/mypath
+curl --header "X-Vault-Token:s.J88C1se24yKGgeFrCYw5HDwp" --request LIST $VAULT_ADDR/v1/mypath | jq
+
+# get key and values
+curl --header "X-Vault-Token:s.1Bjw8DTCXZrNbyR2EQNt3lvW" $VAULT_ADDR/v1/mypath/api-post | jq
+
+
+#Delete a secret
+curl --header "X-Vault-Token:s.1Bjw8DTCXZrNbyR2EQNt3lvW" --request DELETE $VAULT_ADDR/v1/mypath/api-post
+curl --header "X-Vault-Token:s.J88C1se24yKGgeFrCYw5HDwp" --request LIST $VAULT_ADDR/v1/mypath | jq
+
+
+curl --header "X-Vault-Token:s.J88C1se24yKGgeFrCYw5HDwp" $VAULT_ADDR/v1/mypath/api-post
+
+
+
+
+
+vault kv put mypath/customer/abcd contact_name="kum1" support_email="kum1@abcd.com"
+vault kv put mypath/customer/abcd contact_name="kum2" support_email="kum2@abcd.com"
+vault kv put mypath/customer/abcd contact_name="kum3" support_email="kum3@abcd.com"
+vault kv put mypath/customer/abcd contact_name="kum4" support_email="kum4@abcd.com"
+vault kv put mypath/customer/abcd contact_name="kum5" support_email="kum5@abcd.com"
+vault kv put mypath/customer/abcd contact_name="kum6" support_email="kum6@abcd.com"
+vault kv put mypath/customer/abcd contact_name="kum7" support_email="kum7@abcd.com"
+
+# Get Specfic version
+curl --header "X-Vault-Token:s.J88C1se24yKGgeFrCYw5HDwp" $VAULT_ADDR/v1/mypath/data/customer/abcd?version=7 | jq
+curl --header "X-Vault-Token:s.J88C1se24yKGgeFrCYw5HDwp" $VAULT_ADDR/v1/mypath/data/customer/abcd?version=6 | jq
+curl --header "X-Vault-Token:s.J88C1se24yKGgeFrCYw5HDwp" $VAULT_ADDR/v1/mypath/data/customer/abcd?version=8 | jq
+
+
+==============================Policy=====================================================================
+mysecretpath_mypolicy.hcl
+
+path "mysecretpath/data/*" {
+  capabilities = ["create", "update"]
+}
+
+path "mysecretpath/data/forviewonly" {
+  capabilities = ["read"]
+}
+
+
+
+# format and validates the policy
+
+vault policy fmt mysecretpath_mypolicy.hcl
+
+
+# writes the policy
+
+vault policy write mysecretpath_mypolicy mysecretpath_mypolicy.hcl
+vault policy list
+vault policy read mysecretpath_mypolicy
+
+
+
+#Creates the secret
+vault secrets list
+vault secrets enable -path=mysecretpath/ kv-v2
+vault secrets list
+
+
+#create token for the policy
+vault token create -policy=mysecretpath_mypolicy
+
+
+# login with created token
+vault login s.YnLxah497XI6SFhb7dwMJQt9
+
+
+
+vault kv put mysecretpath/someloction dbhostname="mydb.mycompany.com"
+vault kv put mysecretpath/forviewonly maildns="mail.mycompany.com"
+
+
+~~~~~~
+
+# login with root token
+vault login s.J88C1se24yKGgeFrCYw5HDwp
+
+vault kv put mysecretpath/someloction dbhostname="mydb1.mycompany.com"
+vault kv put mysecretpath/forviewonly maildns="mail.mycompany.com"
+
+~~~~~~
+
+
+# login with created token
+vault login s.YnLxah497XI6SFhb7dwMJQt9
+
+vault kv get mysecretpath/someloction
+vault kv get mysecretpath/forviewonly
+
+~~~~~~~
+
+
+# login with root token
+vault login s.J88C1se24yKGgeFrCYw5HDwp
+
+vault policy delete mysecretpath_mypolicy
+vault token revoke s.YnLxah497XI6SFhb7dwMJQt9
+
+~~~~~~
+
+
+# login with created token
+vault login s.YnLxah497XI6SFhb7dwMJQt9
+
+vault secrets disable mysecretpath
+vault secrets list
+
+========================================Renew token =================================================
+
+vault token
+
+vault login s.J88C1se24yKGgeFrCYw5HDwp
+
+vault create token
+
+vault token lookup s.40Ve3WYfmGQvdXvRwC56RYES
+
+
+cat mysecretpath_mypolicy.hcl
+path "mysecretpath/data/*" {
+  capabilities = ["create", "update"]
+}
+
+path "mysecretpath/data/forviewonly" {
+  capabilities = ["read"]
+}
+
+vault policy write mysecretpath_mypolicy mysecretpath_mypolicy.hcl
+
+vault policy list
+
+vault policy read mysecretpath_mypolicy
+
+
+
+vault token create -policy=mysecretpath_mypolicy
+
+
+vault login s.NRa2bCdQSfTu7sbgjQiWpkD0
+
+
+vault token capabilities mysecretpath/data/*
+
+vault token capabilities mysecretpath/data/forviewonly
+
+
+# login with root token
+vault login s.J88C1se24yKGgeFrCYw5HDwp
+
+
+vault token capabilities s.NRa2bCdQSfTu7sbgjQiWpkD0 mysecretpath/data/forviewonly
+
+
+vault token lookup s.NRa2bCdQSfTu7sbgjQiWpkD0
+
+vault token renew s.NRa2bCdQSfTu7sbgjQiWpkD0
+
+=================================use limit and periodic token==============
+
+vault token create -policy=mysecretpath_mypolicy -use-limit=3
+
+VAULT_TOKEN=s.H2MixFIbEg5GkSnsy1Sabi9p vault token lookup
+
+
+VAULT_TOKEN=s.H2MixFIbEg5GkSnsy1Sabi9p vault kv put mysecretpath/someloction dbhostname="mydb.mycompany.com"
+
+
+vault token lookup s.H2MixFIbEg5GkSnsy1Sabi9p
+
+
+
+
+#Periodic service tokens
+
+vault write auth/token/roles/dailycrons allowed_policies="default" period="24h"
+
+vault token create -role=dailycrons
+
+VAULT_TOKEN=s.9CFaWiKJ7zBTmzgL1giyIVb6 vault token lookup
+
+vault token renew s.9CFaWiKJ7zBTmzgL1giyIVb6
+
+vault write auth/token/roles/dailycrons allowed_policies="default" period="60s"
+
+
+
+
+=================================Token hierarchy and orphan token=======
+
+Token Hierarchy
+ 
+ #example-token-create.hcl
+ 
+ path "auth/token/create" {
+   capabilities = ["create", "update"]
+ }
+ 
+ 
+ vault policy write example-token-create example-token-create.hcl
+ 
+ vault token create -policy=example-token-create -ttl=2m
+ 
+ vault login s.Y2n4dBtMSyFG4JiZ6yiR4VSr
+ 
+ 
+ 
+ vault token create -ttl=15m
+ 
+ vault login s.cSOPLCTLX3OG7tZBJAAfM9of
+ 
+ vault token lookup
+ 
+#wait for 3 mins
+ vault token lookup
+
+# Orphan tokens
+vault token create -orphan -ttl=2m
+
+==========================================Accessor===================
+
+vault token create -ttl=90s
+
+vault token renew -accessor wICHCCFbCZwvy3k5iw9ax17k
+
+vault token revoke -accessor wICHCCFbCZwvy3k5iw9ax17k
+
+vault list auth/token/accessors
+
+vault token lookup -accessor vNl5GmoEVHFdjyWZfC7Svo4Z
+
+=======================Batch token==================
+
+vault token create -policy=mysecretpath_mypolicy -type=batch
+
+vault token create -policy=mysecretpath_mypolicy -type=batch -ttl=2m
+
+
+vault login b.AAAAAQIp5HLQsB4cIuNBCW2Z46RWoJWgZMKODQQKWwnOQsfWe0TLEVMH_bnJwSStdb5kUlYL3JX-WYvfV2afnfyXXhbzY1deCuLRZdI84cvDU-wjwf7IIxLPEcqP58QcJdFpjL-P-9DWePts78hawtBoGUAbT9qjuAqAzypbGVV94AawOu93JJYUgpwFKSCB
+
+VAULT_TOKEN=b.AAAAAQJFQnJhiBJyUpAEp38G1BxWYQCzg4VNxtZQvPwETQwDL_j4gPguI23aBq68LWYTX9l0mple92S8Y3_NdWeWPhZQmEh7ZXff-918E6iYbWKh9qnMTgVsZMVQTYbqtczBeydhh2_Lq5i89P2cK6g3FbTdJJhOsfbcm-y7p--saYxczXQ8I8Z0wLRcUQ vault token lookup
+
+vault login s.1Bjw8DTCXZrNbyR2EQNt3lvW
+
+
+vault token revoke b.AAAAAQIp5HLQsB4cIuNBCW2Z46RWoJWgZMKODQQKWwnOQsfWe0TLEVMH_bnJwSStdb5kUlYL3JX-WYvfV2afnfyXXhbzY1deCuLRZdI84cvDU-wjwf7IIxLPEcqP58QcJdFpjL-P-9DWePts78hawtBoGUAbT9qjuAqAzypbGVV94AawOu93JJYUgpwFKSCB
+
+Batch tokens will be created for specific duartion i.e the raeson batch token should not be created with the default max ttl i.e 32 days or it should be creted with the parent having defined TTL
+
+Always it is recommneded to have a defined ttl and not to create token using the root token. 
+Create a token which is having permissions within the path /auth/token/create and use that specific token to craete further tokens
+so that in case if any token needs to revoke I can go ahead and revoke the parent token 
+
+
+
+=============================Audit devices==================================
+
+
+vault audit enable file file_path=/var/log/vault_audit.log
+
+sudo tail -f /var/log/vault_audit.log
+
+
+https://www.vaultproject.io/docs/audit
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
